@@ -103,6 +103,7 @@ void open_slave_pty(const char *master_name) {
 
 void process_pty(int master_fd) {
     int rc;
+    int stdin_isatty;
 
     sigset_t mask;
 
@@ -131,21 +132,26 @@ void process_pty(int master_fd) {
     signal_fd = signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
     sys_fail_if(signal_fd < 0, "signalfd()");
 
-    rc = tcgetattr(STDIN_FILENO, &stdin_attr);
-    sys_fail_if(rc < 0, "tcgetattr()");
+    stdin_isatty = isatty(STDIN_FILENO);
+    if (stdin_isatty) {
+        rc = tcgetattr(STDIN_FILENO, &stdin_attr);
+        sys_fail_if(rc < 0, "tcgetattr()");
 
-    cfmakeraw(&raw_attr);
-    raw_attr.c_lflag &= ~ECHO;
+        cfmakeraw(&raw_attr);
+        raw_attr.c_lflag &= ~ECHO;
 
-    rc = tcsetattr(STDIN_FILENO, TCSANOW, &raw_attr);
-    sys_fail_if(rc < 0, "tcsetattr()");
+        rc = tcsetattr(STDIN_FILENO, TCSANOW, &raw_attr);
+        sys_fail_if(rc < 0, "tcsetattr()");
+    }
 
     epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     sys_fail_if(epoll_fd < 0, "epoll_create1()");
 
-    stdin_ev.events = EPOLLIN; stdin_ev.data.fd = STDIN_FILENO;
-    rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, stdin_ev.data.fd, &stdin_ev);
-    sys_fail_if(rc < 0, "epoll_ctl(STDIN_FILENO)");
+    if (stdin_isatty) {
+        stdin_ev.events = EPOLLIN; stdin_ev.data.fd = STDIN_FILENO;
+        rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, stdin_ev.data.fd, &stdin_ev);
+        sys_fail_if(rc < 0, "epoll_ctl(STDIN_FILENO)");
+    }
 
     master_ev.events = EPOLLIN; master_ev.data.fd = master_fd;
     rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, master_ev.data.fd, &master_ev);
@@ -202,8 +208,10 @@ void process_pty(int master_fd) {
             case SIGWINCH: {
                 struct winsize ws;
 
-                rc = ioctl(STDIN_FILENO,TIOCGWINSZ,&ws);
-                sys_fail_if(rc < 0, "ioctl()");
+                if (isatty(STDIN_FILENO)) {
+                    rc = ioctl(STDIN_FILENO,TIOCGWINSZ,&ws);
+                    sys_fail_if(rc < 0, "ioctl()");
+                }
 
                 rc = ioctl(master_fd, TIOCSWINSZ, &ws);
                 sys_fail_if(rc < 0, "ioctl()");
@@ -223,8 +231,10 @@ void process_pty(int master_fd) {
     }
 
 done:
-    rc = tcsetattr(STDIN_FILENO, TCSANOW, &stdin_attr);
-    sys_fail_if(rc < 0, "tcsetattr()");
+    if (stdin_isatty) {
+        rc = tcsetattr(STDIN_FILENO, TCSANOW, &stdin_attr);
+        sys_fail_if(rc < 0, "tcsetattr()");
+    }
 }
 
 void serve_pty(int fd) {

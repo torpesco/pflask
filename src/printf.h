@@ -28,6 +28,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef ENABLE_COLOR_DISPLAY
+
 #define COLOR_GREEN  "[1;32m"
 #define COLOR_YELLOW "[1;33m"
 #define COLOR_RED    "[1;31m"
@@ -38,6 +40,21 @@
 
 #define CURSOR_HIDE  "[?25l"
 #define CURSOR_SHOW  "[?25h"
+
+#else /* !ENABLE_COLOR_DISPLAY */
+
+#define COLOR_GREEN  ""
+#define COLOR_YELLOW ""
+#define COLOR_RED    ""
+#define COLOR_BGRED  ""
+#define COLOR_OFF    ""
+
+#define LINE_CLEAR   ""
+
+#define CURSOR_HIDE  ""
+#define CURSOR_SHOW  ""
+
+#endif /* ENABLE_COLOR_DISPLAY */
 
 int use_syslog;
 

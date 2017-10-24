@@ -232,6 +232,31 @@ void setup_mount(struct mount *mounts, const char *dest, const char *ephemeral_d
     }
 }
 
+static int mkdirp(const char *pathname, mode_t mode) {
+    const size_t pathlen = strlen(pathname);
+    char path[pathlen+1];
+    int rc;
+    int i;
+
+    memcpy(path, pathname, pathlen+1);
+    for (i = 1; path[i]; ++i) {
+        if (path[i] != '/') {
+            continue;
+        }
+        path[i] = 0;
+        rc = mkdir(path, mode);
+        if (rc != 0 && errno != EEXIST) {
+            return rc;
+        }
+        path[i] = '/';
+    }
+    rc = mkdir(path, mode);
+    if (rc != 0 && errno != EEXIST) {
+        return rc;
+    }
+    return rc;
+}
+
 static void make_bind_dest(struct mount *m, const char *dest) {
     int rc;
 
@@ -258,7 +283,7 @@ static void make_bind_dest(struct mount *m, const char *dest) {
 
             rc = fd;
         } else {
-            rc = mkdir(dest, 0755);
+            rc = mkdirp(dest, 0755);
         }
 
         sys_fail_if(rc < 0, "Could not create mount dest %s", dest);

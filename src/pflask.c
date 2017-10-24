@@ -256,6 +256,7 @@ int main(int argc, char *argv[]) {
             setenv("LOGNAME", args.user_arg, 1);
             if (term)
                 setenv("TERM", term, 1);
+            setenv("HOME", "/", 1);
         }
 
         for (unsigned int i = 0; i < args.setenv_given; i++) {
